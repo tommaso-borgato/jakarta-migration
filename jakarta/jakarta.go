@@ -254,37 +254,46 @@ func processPom(path string, info os.FileInfo) {
 		"javax.xml.ws",
 	}
 
+	finaltext := string(data)
+	ANSI_RESET := "\u001B[0m"
+	ANSI_YELLOW := "\u001B[33m"
+	ANSI_RED_BACKGROUND := "\u001B[41m"
 	for _, value := range GAVS {
-		r := regexp.MustCompile(fmt.Sprintf("[^ ]*%s.*:", value))
-		matches := r.FindAllString(string(data), -1)
-		for _, v := range matches {
-			//fmt.Printf("Dependency to remove: %s\n", strings.TrimSuffix(v, ":"))
+		if true {
+			finaltext = strings.ReplaceAll(finaltext, value, fmt.Sprintf("%s%s%s%s", ANSI_RED_BACKGROUND, ANSI_YELLOW, value, ANSI_RESET))
+			fmt.Printf("%s\n", finaltext)
+		} else {
+			r := regexp.MustCompile(fmt.Sprintf("[^ ]*%s.*:", value))
+			matches := r.FindAllString(string(data), -1)
+			for _, v := range matches {
+				//fmt.Printf("Dependency to remove: %s\n", strings.TrimSuffix(v, ":"))
 
-			cmd := exec.Command("mvn", "dependency:tree", "-f", path, fmt.Sprintf("-Dincludes=%s", strings.TrimSuffix(v, ":")))
+				cmd := exec.Command("mvn", "dependency:tree", "-f", path, fmt.Sprintf("-Dincludes=%s", strings.TrimSuffix(v, ":")))
 
-			stdout, err := cmd.StdoutPipe()
+				stdout, err := cmd.StdoutPipe()
 
-			if err != nil {
-				log.Fatal(fmt.Sprintf("Error setting up mvn with pom file %s.: ", path), err)
+				if err != nil {
+					log.Fatal(fmt.Sprintf("Error setting up mvn with pom file %s.: ", path), err)
+				}
+
+				if err := cmd.Start(); err != nil {
+					log.Fatal(fmt.Sprintf("Error running mvn with pom file %s.: ", path), err)
+				}
+
+				datainc, err := ioutil.ReadAll(stdout)
+
+				if err != nil {
+					fmt.Printf("%s\n", string(datainc))
+					log.Fatal(fmt.Sprintf("Error reading output from mvn with pom file %s.: ", path), err)
+				}
+
+				if err := cmd.Wait(); err != nil {
+					fmt.Printf("%s\n", string(datainc))
+					log.Fatal(fmt.Sprintf("Error waiting output from mvn with pom file %s.: ", path), err)
+				}
+
+				fmt.Printf("#################### Depemdency to remove/replace: ####################\n%s\n\n", string(datainc))
 			}
-
-			if err := cmd.Start(); err != nil {
-				log.Fatal(fmt.Sprintf("Error running mvn with pom file %s.: ", path), err)
-			}
-
-			datainc, err := ioutil.ReadAll(stdout)
-
-			if err != nil {
-				fmt.Printf("%s\n", string(datainc))
-				log.Fatal(fmt.Sprintf("Error reading output from mvn with pom file %s.: ", path), err)
-			}
-
-			if err := cmd.Wait(); err != nil {
-				fmt.Printf("%s\n", string(datainc))
-				log.Fatal(fmt.Sprintf("Error waiting output from mvn with pom file %s.: ", path), err)
-			}
-
-			fmt.Printf("#################### Depemdency to remove/replace: ####################\n%s\n\n", string(datainc))
 		}
 	}
 }
